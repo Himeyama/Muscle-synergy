@@ -3,6 +3,8 @@ import os
 import csv
 import glob
 import filter
+import matplotlib.pyplot as plt
+
 
 def load(filename):
     basename = os.path.basename(filename).split(".", 1)[0]
@@ -62,7 +64,59 @@ def pMat(Es, f=1925.926):
 
 
 def max(Es):
-    maxE = np.zeros(Es.shape[2])
-    for i, m in enumerate(Es.T):
+    maxE = np.zeros(Es.shape[1])
+    for i, m in enumerate(Es):
         maxE[i] = np.max(m)
     return maxE
+
+
+def plot_synergy(W):
+    plt.rcParams["font.family"] = "Noto Sans CJK JP"
+    colors = ["#f44336", "#E91E63", "#9C27B0", "#673AB7", "#3F51B5", "#2196F3", 
+            "#03A9F4", "#00BCD4", "#009688", "#4CAF50", "#8BC34A", "#CDDC39",
+            "#FFEB3B", "#FFC107", "#FF9800", "#FF5722"]
+    muscle_names = ["前脛骨筋", "長腓骨筋", "外側広筋", "内側広筋", "大腿直筋", "長内転筋",
+        "外側腓腹筋", "内側腓腹筋", "ヒラメ筋", "大腿二頭筋", "半腱様筋", "大腿筋膜張筋",
+        "中殿筋", "大殿筋", "脊柱起立筋", "外腹斜筋"]
+
+    for i, session in enumerate(W):
+        plt.figure(figsize=(12, 36), dpi=125)
+        for j, synergy in enumerate(session.T):
+            plt.subplots_adjust(hspace=0.6)
+            plt.subplot(8, 2, j + 1)
+            plt.title(f"セッション: {i + 1}, シナジー: {j + 1}")
+            plt.bar(muscle_names, synergy, color=colors)
+            plt.xticks(muscle_names, muscle_names, rotation=90)
+            plt.grid(axis="y")
+        plt.show()
+
+
+def plot_synergy_activities(C, ct=0.5, fs=1925.926):
+    t = np.arange(C[0].shape[1]) / fs
+    for i, session in enumerate(C):
+        for j, synergy in enumerate(session):
+            c = np.convolve(synergy, np.ones(int(fs * ct)) / int(fs * ct), mode='same')
+            plt.figure(figsize=(24, 2))
+            plt.title(f"セッション: {i + 1}, シナジー: {j + 1}")
+            plt.grid()
+            plt.plot(t, c)
+            plt.show()
+
+
+def e(E, w, c):
+    return E - w.dot(c)
+
+
+def vaf(E, w, c):
+    return (1 - np.sum(np.power(e(E, w, c), 2)) / np.sum(np.power(E, 2))) * 100
+
+
+def vafm(vafma, session, E, w, c):
+    for i in range(len(E)):
+        vafma[session][i] = (1 - np.sum(e(E, w, c).T[i]) / np.sum(E.T[i])) * 100
+
+
+def isVAF(E, w, c, vafma, session, vafp=90, vafmp=75):
+    v = vaf(E, w, c)
+    vafm(vafma, session, E, w, c)
+    return v, (v > vafp and np.min(vafma[session]) >= vafmp)
