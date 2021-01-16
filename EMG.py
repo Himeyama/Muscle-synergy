@@ -43,7 +43,7 @@ def done(text=None):
         print(f"\x1b[32m完了\x1b[0m")
 
 
-def preparation(emg, f, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10)):
+def preparation(emg, f, hiparams, lowparams):
     emg = filter.highpass(emg, f, *hiparams)
     emg = np.abs(emg)
     emg = filter.lowpass(emg, f, *lowparams)
@@ -51,14 +51,14 @@ def preparation(emg, f, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10)):
     return emg
 
 
-def p(Es, f=1925.926):
+def p(Es, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10), f=1925.926):
     ss = np.zeros(Es.shape)
     _, m_size, t_size = Es.shape
     for i, session in enumerate(ss):
         ms = np.zeros((m_size, t_size))
         for m in range(m_size):
             emg = Es[i][m]
-            ms[m] = preparation(emg, f)
+            ms[m] = preparation(emg, f, hiparams, lowparams)
         ss[i] = ms
     return ss
 
@@ -122,7 +122,7 @@ def isVAF(E, w, c, vafma, session, vafp=90, vafmp=75):
     return v, (v > vafp and np.min(vafma[session]) >= vafmp)
 
 
-def calc_muscle_synergy(Es, vaf, vafm, f=1926.926):
+def calc_muscle_synergy(Es, f=1926.926):
     C = [None for _ in Es]
     W = [None for _ in Es]
     max_emg = maxEMG(Es)
@@ -149,4 +149,4 @@ def calc_muscle_synergy(Es, vaf, vafm, f=1926.926):
         vaf[session] = v
         done(f"Session: {session + 1}, シナジー数: {synergy + 1}")
     done()
-    return C, W
+    return C, W, vaf, np.array([_.max() for _ in vafm])
