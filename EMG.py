@@ -2,7 +2,7 @@ import numpy as np
 import os
 import csv
 import glob
-
+import filter
 
 def load(filename):
     basename = os.path.basename(filename).split(".", 1)[0]
@@ -39,3 +39,30 @@ def done(text=None):
         print(f"\x1b[32m{text} [完了]\x1b[0m")
     else:
         print(f"\x1b[32m完了\x1b[0m")
+
+
+def preparation(emg, f, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10)):
+    emg = filter.highpass(emg, f, *hiparams)
+    emg = np.abs(emg)
+    emg = filter.lowpass(emg, f, *lowparams)
+    emg[emg < 0] = 0
+    return emg
+
+
+def pMat(Es, f=1925.926):
+    ss = np.zeros(Es.shape)
+    _, m_size, t_size = Es.shape
+    for i, session in enumerate(ss):
+        ms = np.zeros((m_size, t_size))
+        for m in range(m_size):
+            emg = Es[i][m]
+            ms[m] = preparation(emg, f)
+        ss[i] = ms
+    return ss
+
+
+def max(Es):
+    maxE = np.zeros(Es.shape[2])
+    for i, m in enumerate(Es.T):
+        maxE[i] = np.max(m)
+    return maxE
