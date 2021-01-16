@@ -2,9 +2,9 @@ import numpy as np
 import os
 import csv
 import glob
-import filter
 import matplotlib.pyplot as plt
-
+from sklearn.decomposition import NMF
+import filter
 
 def load(filename):
     basename = os.path.basename(filename).split(".", 1)[0]
@@ -51,7 +51,7 @@ def preparation(emg, f, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10)):
     return emg
 
 
-def pMat(Es, f=1925.926):
+def p(Es, f=1925.926):
     ss = np.zeros(Es.shape)
     _, m_size, t_size = Es.shape
     for i, session in enumerate(ss):
@@ -63,7 +63,7 @@ def pMat(Es, f=1925.926):
     return ss
 
 
-def max(Es):
+def maxEMG(Es):
     maxE = np.zeros(Es.shape[1])
     for i, m in enumerate(Es):
         maxE[i] = np.max(m)
@@ -120,3 +120,33 @@ def isVAF(E, w, c, vafma, session, vafp=90, vafmp=75):
     v = vaf(E, w, c)
     vafm(vafma, session, E, w, c)
     return v, (v > vafp and np.min(vafma[session]) >= vafmp)
+
+
+def calc_muscle_synergy(Es, vaf, vafm, f=1926.926):
+    C = [None for _ in Es]
+    W = [None for _ in Es]
+    max_emg = maxEMG(Es)
+    session_size, muscle_size, sample_size = Es.shape
+    vaf = np.zeros(session_size)
+    vafm = np.zeros((session_size, muscle_size))
+
+    for session, E in enumerate(Es):
+        w = None
+        c = None
+
+        for synergy in range(1, muscle_size):
+            nmf = NMF(n_components = synergy)
+            nmf.fit(E)
+            w = nmf.fit_transform(E) #筋シナジー
+            c = nmf.components_ #活動度
+
+            # VAF 計算
+            v, okVAF = isVAF(E, w, c, vafm, session)
+            if(okVAF):
+                break
+        W[session] = w
+        C[session] = c
+        vaf[session] = v
+        done(f"Session: {session + 1}, シナジー数: {synergy + 1}")
+    done()
+    return C, W
