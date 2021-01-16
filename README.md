@@ -1,6 +1,6 @@
-# Muscle-synergy
+# 💪 Muscle-synergy ⚡
 
-## Sample
+## For examples
 
 ```py
 import EMG
