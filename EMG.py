@@ -4,6 +4,7 @@ import csv
 import glob
 import matplotlib.pyplot as plt
 from sklearn.decomposition import NMF
+from scipy import fftpack
 import filter
 
 def load(filename):
@@ -43,22 +44,52 @@ def done(text=None):
         print(f"\x1b[32m完了\x1b[0m")
 
 
-def preparation(emg, f, hiparams, lowparams):
+def lowpass(x, fs, fp):
+    n = len(x)
+    dt = 1.0 / fs
+    yf = fftpack.fft(x) / (n / 2)
+    freq = fftpack.fftfreq(n, dt)
+    yf2 = np.copy(yf)
+    yf2[(freq > fp)] = 0
+    yf2[(freq < 0)] = 0
+    y2 = np.real(fftpack.ifft(yf2)*n)
+    return y2
+
+
+def highpass(x, fs, fp):
+    n = len(x)
+    dt = 1.0 / fs
+    yf = fftpack.fft(x) / (n / 2)
+    freq = fftpack.fftfreq(n, dt)
+    yf2 = np.copy(yf)
+    yf2[(freq < fp)] = 0
+    yf2[(freq < 0)] = 0
+    y2 = np.real(fftpack.ifft(yf2)*n)
+    return y2
+
+
+def preparation(emg, f, hp, lp):
+    # emg = highpass(emg, f, hp)
+    hiparams = (10, 3, 3, 10)
+    lowparams = (15, 22, 3, 10)
     emg = filter.highpass(emg, f, *hiparams)
     emg = np.abs(emg)
+
+    # emg = lowpass(emg, f, lp)
     emg = filter.lowpass(emg, f, *lowparams)
     emg[emg < 0] = 0
     return emg
 
 
-def p(Es, hiparams=(10, 3, 3, 10), lowparams=(15, 22, 3, 10), f=1925.926):
+def p(Es, hp=10, lp=15, f=1925.926):
+    if type(Es) is str: Es = get(Es)
     ss = np.zeros(Es.shape)
     _, m_size, t_size = Es.shape
     for i, session in enumerate(ss):
         ms = np.zeros((m_size, t_size))
         for m in range(m_size):
             emg = Es[i][m]
-            ms[m] = preparation(emg, f, hiparams, lowparams)
+            ms[m] = preparation(emg, f, hp, lp)
         ss[i] = ms
     return ss
 
@@ -147,6 +178,6 @@ def calc_muscle_synergy(Es, f=1926.926):
         W[session] = w
         C[session] = c
         vaf[session] = v
-        done(f"Session: {session + 1}, シナジー数: {synergy + 1}")
+        done(f"Session: {session + 1}, シナジー数: {synergy}")
     done()
     return C, W, vaf, np.array([_.max() for _ in vafm])
